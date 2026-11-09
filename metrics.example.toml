@@ -1,0 +1,24 @@
+# Optional: change which values are read how often.
+#
+# Without this file the gateway uses the recommended split, listed in the README.
+# Only write down what you want to differ from it, and point METRICS_CONFIG here.
+#
+#   poll    read every POLL_INTERVAL
+#   detail  read every DETAIL_INTERVAL
+#   off     neither read nor published
+#
+# Keys are MQTT topics without the prefix. "*" matches any characters, including "/".
+# The most exact rule wins, so a topic written out in full beats any wildcard.
+
+[rates]
+
+# Faster updates for a value you automate on
+# "battery/temperature" = "poll"
+# "pv/string/*" = "poll"
+
+# No per-cell values, except one cell you want to keep an eye on
+# "battery/module/*/cell/*" = "off"
+# "battery/module/a/cell/1/voltage" = "detail"
+
+# Nothing about a second meter
+# "meter2/*" = "off"

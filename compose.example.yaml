@@ -1,0 +1,16 @@
+services:
+  senec-mqtt-gateway:
+    image: ghcr.io/mschmiedel/senec-mqtt-gateway:latest
+    restart: unless-stopped
+    environment:
+      SENEC_HOST: ${SENEC_HOST:?IP address or hostname of the SENEC}
+      MQTT_URI: ${MQTT_URI:-mqtt://mosquitto:1883}
+      MQTT_USER: ${MQTT_USER:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      # Only enable once the values look right and the battery should be controlled
+      COMMANDS_ENABLED: "false"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

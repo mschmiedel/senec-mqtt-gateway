@@ -1,0 +1,9 @@
+senec-mqtt-gateway
+Copyright 2026 the senec-mqtt-gateway contributors
+
+This product includes code derived from ha-senec-v3
+(https://github.com/marq24/ha-senec-v3), Copyright 2023 Matthias Marquardt,
+licensed under the Apache License, Version 2.0.
+
+The files src/senec_mqtt_gateway/decode.py and src/senec_mqtt_gateway/senec.py
+contain modified portions of that code. Each file states what was changed.
