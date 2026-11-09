@@ -101,7 +101,16 @@ async def test_values_are_retained_for_late_subscribers(fake_senec, mqtt_port):
         await wait_for(lambda: late.get("senec/pv/power") == "3000.0")
 
 
-async def test_clean_shutdown_marks_offline(fake_senec, mqtt_port):
+async def test_clean_shutdown_marks_offline(fake_senec, mqtt_port, monkeypatch):
+    # amqtt acknowledges a message and queues it, then drops the queue if the
+    # DISCONNECT is handled first. Keep the connection open until it is delivered.
+    publish_status = Gateway._publish_status
+
+    async def publish_and_linger(self, client, status):
+        await publish_status(self, client, status)
+        await asyncio.sleep(0.2)
+
+    monkeypatch.setattr(Gateway, "_publish_status", publish_and_linger)
     async with collector(mqtt_port) as (seen, _):
         async with running_gateway(make_config(fake_senec, mqtt_port)):
             await wait_for(lambda: seen.get("senec/status") == "online")
@@ -376,8 +385,10 @@ async def test_reconnects_after_broker_restart(fake_senec, broker, monkeypatch):
         broker["broker"] = await start_broker(port)
 
         async def seen_again():
+            # If the broker goes away during a QoS 1 publish, the gateway only
+            # notices when aiomqtt's 10 s publish timeout expires.
             async with collector(port, "senec/pv/power") as (seen, _):
-                await wait_for(lambda: seen.get("senec/pv/power") == "3000.0", timeout=5)
+                await wait_for(lambda: seen.get("senec/pv/power") == "3000.0", timeout=15)
 
         await seen_again()
 
