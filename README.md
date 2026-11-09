@@ -128,6 +128,8 @@ With discovery, the sensors appear automatically under the device "SENEC.Home". 
 
 Per-cell values and other rarely needed sensors are announced but disabled by default. Enable them in Home Assistant if you want them.
 
+With `COMMANDS_ENABLED=true`, the battery mode also appears as a selection, `select.senec_battery_mode`, with the options `normal` and `charge`. It disappears again when commands are turned off.
+
 Where the meaning is unchanged, entity ids match those of the `ha-senec-v3` integration to make switching easier. Battery power and current have new ids because their sign differs.
 
 ## Behaviour on failures

@@ -67,7 +67,6 @@ Way back: set the evcc meters to `senec-home` again and stop the gateway.
 - [ ] Test on real V2 and V3 devices, including TLS with old cipher suites.
 - [ ] Is the initial `FACTORY` request needed on every device? The evcc template works without it.
 - [ ] Are 10 s enough for evcc's control loop?
-- [ ] Confirm the PV sign during daylight. The battery sign is confirmed on a real device during forced charging.
 - [ ] Do older firmware versions cope with the detail requests, and do they deliver the same fields?
 - [ ] Fall back to `normal` if evcc fails: evcc's `watchdog` plugin might do this, but may bypass the mode detection of `switch`.
 - [ ] Add energy counters so that evcc gets `energy`.

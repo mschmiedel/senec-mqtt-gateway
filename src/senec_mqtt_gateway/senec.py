@@ -151,8 +151,8 @@ class SenecClient:
             responses.append(await self._post(form))
         return merge_sections(*responses)
 
-    async def set_battery_mode(self, mode: str) -> None:
-        """Switch between normal operation and forced charging."""
+    async def set_battery_mode(self, mode: str) -> dict[str, Any]:
+        """Switch between normal operation and forced charging, and return the resulting state."""
         await self._post(
             _MODE_FORMS[mode],
             extra_headers={
@@ -167,3 +167,4 @@ class SenecClient:
         if running != (1 if mode == MODE_CHARGE else 0):
             # Can be legitimate, e.g. a full battery does not start forced charging.
             _LOGGER.warning("Battery mode %s requested, SAFE_CHARGE_RUNNING is %s", mode, running)
+        return data

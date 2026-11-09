@@ -6,7 +6,9 @@ import json
 
 from .config import Config
 from .schema import Metric, Raw, ReadPlan
-from .senec import DeviceInfo
+from .senec import BATTERY_MODES, DeviceInfo
+
+_SAFE_CHARGE_TOPIC = "battery/safe_charge"
 
 
 def node_id(topic_prefix: str) -> str:
@@ -24,6 +26,30 @@ def _object_id(metric: Metric) -> str:
 def discovery_topic(config: Config, metric: Metric) -> str:
     node = node_id(config.topic_prefix)
     return f"{config.ha_discovery_prefix}/{_component(metric)}/{node}/{_object_id(metric)}/config"
+
+
+def battery_mode_topic(config: Config) -> str:
+    return f"{config.ha_discovery_prefix}/select/{node_id(config.topic_prefix)}/battery_mode/config"
+
+
+def _battery_mode_payload(config: Config, device: dict) -> str:
+    prefix = config.topic_prefix
+    return json.dumps(
+        {
+            "name": "Battery mode",
+            "unique_id": f"{node_id(prefix)}_battery_mode",
+            "default_entity_id": "select.senec_battery_mode",
+            "command_topic": f"{prefix}/command/battery_mode",
+            "state_topic": f"{prefix}/{_SAFE_CHARGE_TOPIC}",
+            "value_template": "{{ 'charge' if value == '1' else 'normal' }}",
+            "options": list(BATTERY_MODES),
+            "availability_topic": f"{prefix}/status",
+            "device": device,
+            # The gateway rejects retained commands.
+            "retain": False,
+            "qos": 1,
+        }
+    )
 
 
 def discovery_messages(config: Config, info: DeviceInfo, raw: Raw, plan: ReadPlan) -> list[tuple[str, str]]:
@@ -66,4 +92,8 @@ def discovery_messages(config: Config, info: DeviceInfo, raw: Raw, plan: ReadPla
             if value is not None:
                 payload[key] = value
         messages.append((discovery_topic(config, metric), json.dumps(payload)))
+
+    # Without its state topic, the selection could never show the current mode.
+    if config.commands_enabled and any(metric.topic == _SAFE_CHARGE_TOPIC for metric in plan.active):
+        messages.append((battery_mode_topic(config), _battery_mode_payload(config, device)))
     return messages

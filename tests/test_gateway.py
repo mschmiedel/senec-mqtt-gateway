@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import dataclasses
 import json
 import logging
 
@@ -298,7 +299,8 @@ async def test_discovery_is_sent_once_the_senec_is_back(fake_senec, mqtt_port):
     async with collector(mqtt_port) as (seen, _):
         async with running_gateway(make_config(fake_senec, mqtt_port)):
             await asyncio.sleep(0.15)
-            assert not any(topic.startswith("homeassistant/") for topic in seen)
+            # An empty payload only clears the battery mode selection.
+            assert not any(payload for topic, payload in seen.items() if topic.startswith("homeassistant/"))
             fake_senec.fail_with = None
             await wait_for(lambda: seen.get("senec/status") == "online")
     assert any(topic.endswith("battery_temperature/config") for topic in seen)
@@ -337,6 +339,66 @@ async def test_command_sets_battery_mode(fake_senec, mqtt_port):
             await client.publish("senec/command/battery_mode", payload="normal", qos=1)
             await wait_for(lambda: seen.get("senec/battery/safe_charge") == "0")
     assert fake_senec.writes() == [{"SAFE_CHARGE_FORCE": "u8_01"}, {"SAFE_CHARGE_PROHIBIT": "u8_01"}]
+
+
+SELECT_TOPIC = "homeassistant/select/senec_mqtt_gateway_senec/battery_mode/config"
+
+
+async def test_battery_mode_is_selectable_when_commands_are_enabled(fake_senec, mqtt_port):
+    async with collector(mqtt_port) as (seen, _):
+        async with running_gateway(make_config(fake_senec, mqtt_port, commands_enabled=True)):
+            await wait_for(lambda: seen.get("senec/status") == "online")
+
+    select = json.loads(seen[SELECT_TOPIC])
+    assert select["command_topic"] == "senec/command/battery_mode"
+    assert select["state_topic"] == "senec/battery/safe_charge"
+    assert select["options"] == ["normal", "charge"]
+    assert select["retain"] is False
+    assert select["availability_topic"] == "senec/status"
+    assert select["default_entity_id"] == "select.senec_battery_mode"
+
+
+async def test_battery_mode_is_not_selectable_without_commands(fake_senec, mqtt_port):
+    async with collector(mqtt_port) as (seen, _):
+        async with running_gateway(make_config(fake_senec, mqtt_port)):
+            await wait_for(lambda: seen.get("senec/status") == "online")
+    assert not seen.get(SELECT_TOPIC)
+
+
+async def test_selection_disappears_when_commands_are_turned_off(fake_senec, mqtt_port):
+    async with collector(mqtt_port, "senec/status") as (status, _):
+        async with running_gateway(make_config(fake_senec, mqtt_port, commands_enabled=True)):
+            await wait_for(lambda: status.get("senec/status") == "online")
+
+    async with collector(mqtt_port, "senec/status") as (status, _):
+        status.clear()
+        async with running_gateway(make_config(fake_senec, mqtt_port)):
+            await wait_for(lambda: status.get("senec/status") == "online")
+
+    async with collector(mqtt_port) as (late, _):
+        await wait_for(lambda: "senec/pv/power" in late)
+        await asyncio.sleep(0.1)
+    assert SELECT_TOPIC not in late
+
+
+async def test_no_selection_without_its_state_value(fake_senec, mqtt_port):
+    plan = build_plan({"battery/safe_charge": "off"})
+    config = make_config(fake_senec, mqtt_port, commands_enabled=True)
+    async with collector(mqtt_port) as (seen, _):
+        async with running_gateway(config, plan):
+            await wait_for(lambda: seen.get("senec/status") == "online")
+    assert SELECT_TOPIC not in seen
+
+
+async def test_command_result_is_reported_without_waiting_for_a_poll(fake_senec, mqtt_port):
+    config = dataclasses.replace(make_config(fake_senec, mqtt_port, commands_enabled=True), poll_interval=60)
+    async with collector(mqtt_port) as (seen, client):
+        async with running_gateway(config):
+            await wait_for(lambda: seen.get("senec/status") == "online")
+            assert seen["senec/battery/safe_charge"] == "0"
+            await asyncio.sleep(0.1)
+            await client.publish("senec/command/battery_mode", payload="charge", qos=1)
+            await wait_for(lambda: seen.get("senec/battery/safe_charge") == "1")
 
 
 async def test_invalid_command_is_ignored(fake_senec, mqtt_port):

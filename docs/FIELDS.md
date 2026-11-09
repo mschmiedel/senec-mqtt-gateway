@@ -39,7 +39,7 @@ uv run python -m senec_mqtt_gateway.field_docs > docs/FIELDS.md
 | `grid/voltage/l<p>` | V | poll | `PM1OBJ1.U_AC[ ]` | Grid voltage per phase. |
 | `grid/power_factor/l<p>` | – | poll | Calculated from `PM1OBJ1.P_AC[ ]`, `U_AC[ ]`, `I_AC[ ]` | Grid power factor per phase. Not reported by the device, calculated by the gateway so that direction and load type are visible without combining three topics. Negative while exporting. Includes harmonics, so it is not exactly cos φ. Limited to ±1 and not published while voltage or current is zero. Unreliable at very small currents. |
 | `grid/frequency` | Hz | poll | `PM1OBJ1.FREQ` | Grid frequency. |
-| `pv/power` | W | poll | `ENERGY.GUI_INVERTER_POWER` | PV power. The sign while generating has not been confirmed on a real device yet. |
+| `pv/power` | W | poll | `ENERGY.GUI_INVERTER_POWER` | PV power. Positive while generating. |
 | `house/power` | W | poll | `ENERGY.GUI_HOUSE_POW` | House power. |
 | `battery/power` | W | poll | `ENERGY.GUI_BAT_DATA_POWER` | Battery power. Positive when discharging, negative when charging. Sign inverted from the device value. |
 | `battery/voltage` | V | poll | `ENERGY.GUI_BAT_DATA_VOLTAGE` | Battery voltage. |
@@ -98,6 +98,19 @@ uv run python -m senec_mqtt_gateway.field_docs > docs/FIELDS.md
 | `system/temperature/case` | °C | detail | `TEMPMEASURE.CASE_TEMP` | Case temperature. |
 | `system/temperature/mcu` | °C | detail | `TEMPMEASURE.MCU_TEMP` | MCU temperature. |
 | `system/hours_of_operation` | h | detail | `ENERGY.STAT_HOURS_OF_OPERATION` | Hours of operation. |
+
+## Commands
+
+Only with `COMMANDS_ENABLED=true`. There is one writable value:
+
+| Topic | Payload | Device field | Meaning |
+|---|---|---|---|
+| `command/battery_mode` | `normal` | `ENERGY.SAFE_CHARGE_PROHIBIT` = 1 | Normal operation, ends forced charging |
+| `command/battery_mode` | `charge` | `ENERGY.SAFE_CHARGE_FORCE` = 1 | Forced charging from any source, including the grid |
+
+Commands must not be retained. Retained messages are rejected, so that an old command cannot take effect after a restart.
+
+Home Assistant shows this as `select.senec_battery_mode`. It only exists while commands are enabled. It reads its state from `battery/safe_charge`, which the gateway updates right after a command. The state can stay `normal` after `charge` was requested, for example with a full battery.
 
 ## Not published
 

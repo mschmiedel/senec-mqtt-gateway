@@ -12,7 +12,7 @@ import time
 import aiomqtt
 
 from .config import Config
-from .discovery import discovery_messages, discovery_topic, node_id
+from .discovery import battery_mode_topic, discovery_messages, discovery_topic, node_id
 from .schema import merge_sections, render_all
 from .senec import BATTERY_MODES, SenecClient, SenecError
 
@@ -102,6 +102,8 @@ class Gateway:
             await client.publish(f"{self._config.topic_prefix}/{metric.topic}", payload=None, qos=1, retain=True)
             if self._config.ha_discovery_enabled:
                 await client.publish(discovery_topic(self._config, metric), payload=None, qos=1, retain=True)
+        if self._config.ha_discovery_enabled and not self._config.commands_enabled:
+            await client.publish(battery_mode_topic(self._config), payload=None, qos=1, retain=True)
 
     async def _publish_status(self, client: aiomqtt.Client, status: str) -> None:
         await client.publish(self._status_topic, payload=status, qos=1, retain=True)
@@ -141,11 +143,14 @@ class Gateway:
         if self._config.ha_discovery_enabled and details_settled and not self._discovery_sent:
             await self._publish_discovery(client, merged)
 
-        for suffix, payload in render_all(merged, self._plan).items():
-            await client.publish(f"{self._config.topic_prefix}/{suffix}", payload=payload, retain=True)
+        await self._publish_values(client, merged)
         if not self._available:
             _LOGGER.info("SENEC available")
             await self._publish_status(client, _ONLINE)
+
+    async def _publish_values(self, client: aiomqtt.Client, raw: dict) -> None:
+        for suffix, payload in render_all(raw, self._plan).items():
+            await client.publish(f"{self._config.topic_prefix}/{suffix}", payload=payload, retain=True)
 
     async def _read_details_if_due(self) -> tuple[dict, bool]:
         """Return the details and whether discovery can rely on what has been read.
@@ -182,7 +187,11 @@ class Gateway:
                 _LOGGER.warning("Ignoring unknown battery mode %r", mode)
                 continue
             try:
-                await self._senec.set_battery_mode(mode)
-                _LOGGER.info("Battery mode set to %s", mode)
+                state = await self._senec.set_battery_mode(mode)
             except SenecError as exc:
                 _LOGGER.error("Setting battery mode %s failed: %s", mode, exc)
+                continue
+            _LOGGER.info("Battery mode set to %s", mode)
+            # Report the result now, or a selection in Home Assistant would jump
+            # back until the next poll.
+            await self._publish_values(client, state)

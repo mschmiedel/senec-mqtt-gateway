@@ -48,6 +48,19 @@ uv run python -m senec_mqtt_gateway.field_docs > docs/FIELDS.md
 """
 
 _FOOTER = """
+## Commands
+
+Only with `COMMANDS_ENABLED=true`. There is one writable value:
+
+| Topic | Payload | Device field | Meaning |
+|---|---|---|---|
+| `command/battery_mode` | `normal` | `ENERGY.SAFE_CHARGE_PROHIBIT` = 1 | Normal operation, ends forced charging |
+| `command/battery_mode` | `charge` | `ENERGY.SAFE_CHARGE_FORCE` = 1 | Forced charging from any source, including the grid |
+
+Commands must not be retained. Retained messages are rejected, so that an old command cannot take effect after a restart.
+
+Home Assistant shows this as `select.senec_battery_mode`. It only exists while commands are enabled. It reads its state from `battery/safe_charge`, which the gateway updates right after a command. The state can stay `normal` after `charge` was requested, for example with a full battery.
+
 ## Not published
 
 - Identity data: serial numbers, device ids and other text values.
@@ -70,7 +83,7 @@ _NOTES = {
     "meter2/current/l<p>": _RMS_CURRENT,
     "grid/power_factor/l<p>": _POWER_FACTOR,
     "meter2/power_factor/l<p>": _POWER_FACTOR,
-    "pv/power": "The sign while generating has not been confirmed on a real device yet.",
+    "pv/power": "Positive while generating.",
     "battery/power": "Positive when discharging, negative when charging.",
     "battery/current": "Positive when discharging, negative when charging.",
     "battery/safe_charge": "1 while the device is force-charging the battery, which is the mode `charge`.",
