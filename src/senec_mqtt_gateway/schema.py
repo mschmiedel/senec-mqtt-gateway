@@ -24,7 +24,18 @@ _MAX_FORM_LENGTH = 600
 
 # The values the evcc configuration in the README reads with a timeout.
 EVCC_TOPICS = frozenset(
-    {"grid/power", "grid/current/l1", "grid/current/l2", "grid/current/l3", "pv/power", "battery/power", "battery/soc"}
+    {
+        "grid/power",
+        "grid/power/l1",
+        "grid/power/l2",
+        "grid/power/l3",
+        "grid/current/l1",
+        "grid/current/l2",
+        "grid/current/l3",
+        "pv/power",
+        "battery/power",
+        "battery/soc",
+    }
 )
 
 
@@ -47,6 +58,11 @@ class Metric:
     the device reports as zeros but does not have.
 
     ``advanced`` values are published, but disabled by default in Home Assistant.
+
+    ``apparent_power_of`` names the two fields of the same section whose product
+    is the apparent power. The value is then calculated by the gateway as
+    power factor: ``field`` divided by that product. Descriptions are generated
+    from this list, see field_docs.py.
     """
 
     topic: str
@@ -64,6 +80,7 @@ class Metric:
     fast: bool = False
     requires: tuple[str, str, int] | None = None
     advanced: bool = False
+    apparent_power_of: tuple[str, str] | None = None
 
     def _applies(self, raw: Raw) -> bool:
         if self.requires is None:
@@ -72,14 +89,28 @@ class Metric:
         value = _number(raw.get(section, {}).get(field))
         return value is not None and value >= minimum
 
+    def _read(self, raw: Raw, field: str) -> float | None:
+        value = raw.get(self.section, {}).get(field)
+        if self.index is None:
+            return _number(value)
+        if not isinstance(value, list) or self.index >= len(value):
+            return None
+        return _number(value[self.index])
+
     def _value(self, raw: Raw) -> float | None:
-        value = raw.get(self.section, {}).get(self.field)
-        if self.index is not None:
-            if not isinstance(value, list) or self.index >= len(value):
-                return None
-            value = value[self.index]
-        number = _number(value)
-        return None if number is None else number * self.scale
+        value = self._read(raw, self.field)
+        if value is None:
+            return None
+        if self.apparent_power_of is not None:
+            return self._power_factor(raw, value)
+        return value * self.scale
+
+    def _power_factor(self, raw: Raw, power: float) -> float | None:
+        first, second = (self._read(raw, field) for field in self.apparent_power_of)
+        if not first or not second:
+            return None
+        # Rounded device values can push the ratio slightly past 1.
+        return max(-1.0, min(1.0, power / (first * second)))
 
     def render(self, raw: Raw) -> str | None:
         if not self._applies(raw):
@@ -120,6 +151,23 @@ def _phase_metrics(
     ]
 
 
+def _power_factor_metrics(topic: str, name: str, section: str, **kwargs: Any) -> list[Metric]:
+    return [
+        Metric(
+            topic=f"{topic}/{phase}",
+            name=f"{name} {phase.upper()}",
+            section=section,
+            field="P_AC",
+            index=index,
+            precision=2,
+            device_class="power_factor",
+            apparent_power_of=("U_AC", "I_AC"),
+            **kwargs,
+        )
+        for index, phase in enumerate(_PHASES)
+    ]
+
+
 def _meter2_metrics() -> list[Metric]:
     requires = ("PM1OBJ2", "ENABLED", 1)
     common = {"section": "PM1OBJ2", "requires": requires}
@@ -129,6 +177,7 @@ def _meter2_metrics() -> list[Metric]:
         *_phase_metrics("meter2/power", "Meter 2 power", "PM1OBJ2", "P_AC", "W", "power", requires=requires),
         *_phase_metrics("meter2/current", "Meter 2 current", "PM1OBJ2", "I_AC", "A", "current", requires=requires),
         *_phase_metrics("meter2/voltage", "Meter 2 voltage", "PM1OBJ2", "U_AC", "V", "voltage", requires=requires),
+        *_power_factor_metrics("meter2/power_factor", "Meter 2 power factor", "PM1OBJ2", requires=requires),
     ]
 
 
@@ -239,6 +288,7 @@ METRICS: tuple[Metric, ...] = (
     *_phase_metrics("grid/power", "Grid power", "PM1OBJ1", "P_AC", "W", "power", legacy="power", fast=True),
     *_phase_metrics("grid/current", "Grid current", "PM1OBJ1", "I_AC", "A", "current", legacy="current", fast=True),
     *_phase_metrics("grid/voltage", "Grid voltage", "PM1OBJ1", "U_AC", "V", "voltage", legacy="potential", fast=True),
+    *_power_factor_metrics("grid/power_factor", "Grid power factor", "PM1OBJ1", fast=True),
     Metric("grid/frequency", "Grid frequency", "PM1OBJ1", "FREQ", 3, "Hz", "frequency", legacy_id="senec_enfluri_net_freq", fast=True),
     Metric("pv/power", "PV power", "ENERGY", "GUI_INVERTER_POWER", 1, "W", "power", legacy_id="senec_solar_generated_power", fast=True),
     Metric("house/power", "House power", "ENERGY", "GUI_HOUSE_POW", 1, "W", "power", legacy_id="senec_house_power", fast=True),
@@ -291,6 +341,8 @@ def _build_forms(metrics: Iterable[Metric]) -> list[dict[str, dict[str, str]]]:
         fields[(metric.section, metric.field)] = None
         if metric.requires is not None:
             fields[metric.requires[:2]] = None
+        for field in metric.apparent_power_of or ():
+            fields[(metric.section, field)] = None
 
     forms: list[dict[str, dict[str, str]]] = [{}]
     for section, field in fields:

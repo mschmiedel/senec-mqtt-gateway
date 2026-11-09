@@ -71,6 +71,8 @@ async def test_publishes_values_with_evcc_signs(fake_senec, mqtt_port):
     assert seen["senec/grid/power"] == "-1200.5"
     assert seen["senec/battery/power"] == "-1000.0"
     assert seen["senec/grid/voltage/l3"] == "232.30"
+    assert seen["senec/grid/current/l2"] == "2.50"
+    assert seen["senec/grid/power_factor/l2"] == "-0.35"
     assert seen["senec/grid/frequency"] == "50.012"
     assert seen["senec/battery/soc"] == "64.2" or seen["senec/battery/soc"] == "64.3"
 

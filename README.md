@@ -39,69 +39,20 @@ docker compose -f compose.example.yaml up -d
 
 ## MQTT topics
 
-The payload is just the value. All values are retained. Signs match evcc: grid import and battery discharge are positive.
+The payload is just the value. All values are retained. Signs match evcc: grid import and battery discharge are positive. Phase currents stay as the SENEC reports them, always positive; the direction is in the phase power and in the power factor the gateway calculates.
 
-### Main values, every `POLL_INTERVAL`
+**[docs/FIELDS.md](docs/FIELDS.md) describes every value**: its unit, how often it is read, where it comes from on the SENEC, and anything the gateway does differently from the device.
 
-These are also republished when unchanged, because evcc treats silence as a timeout.
+In short:
 
-| Topic | Unit | Source |
-|---|---|---|
-| `senec/grid/power` | W | `ENERGY.GUI_GRID_POW` |
-| `senec/grid/power/l1` … `l3` | W | `PM1OBJ1.P_AC` |
-| `senec/grid/current/l1` … `l3` | A | `PM1OBJ1.I_AC` |
-| `senec/grid/voltage/l1` … `l3` | V | `PM1OBJ1.U_AC` |
-| `senec/grid/frequency` | Hz | `PM1OBJ1.FREQ` |
-| `senec/pv/power` | W | `ENERGY.GUI_INVERTER_POWER` |
-| `senec/house/power` | W | `ENERGY.GUI_HOUSE_POW` |
-| `senec/battery/power` | W | `ENERGY.GUI_BAT_DATA_POWER` × −1 |
-| `senec/battery/voltage` | V | `ENERGY.GUI_BAT_DATA_VOLTAGE` |
-| `senec/battery/current` | A | `ENERGY.GUI_BAT_DATA_CURRENT` × −1 |
-| `senec/battery/soc` | % | `ENERGY.GUI_BAT_DATA_FUEL_CHARGE` |
-| `senec/battery/safe_charge` | 1/0 | `ENERGY.SAFE_CHARGE_RUNNING` |
-| `senec/system/state` | number | `ENERGY.STAT_STATE` |
-| `senec/status` | `online`/`offline` | Gateway and SENEC reachable |
-
-### Detail values, every `DETAIL_INTERVAL`
-
-Details are read in the same cycle as the main values, so both are published together on those cycles.
-
-Battery modules (`a` … `d`), PV strings and the second meter only appear if the device reports them as present. `--once` lists everything your device delivers.
-
-| Topic | Unit | Source |
-|---|---|---|
-| `senec/grid/limited`, `senec/grid/zero_export` | 1/0 | `ENERGY.STAT_LIMITED_NET_SKEW`, `ENERGY.ZERO_EXPORT` |
-| `senec/meter2/{power,frequency}` | W, Hz | `PM1OBJ2` |
-| `senec/meter2/{power,current,voltage}/l1` … `l3` | W, A, V | `PM1OBJ2` |
-| `senec/pv/power_ratio`, `.../l1` … `l3` | % | `PV1.POWER_RATIO*` |
-| `senec/pv/string/1` … `3/{voltage,current,power}` | V, A, W | `PV1.MPP_*` |
-| `senec/battery/temperature` | °C | `TEMPMEASURE.BATTERY_TEMP` |
-| `senec/battery/temperature/{min,max}` | °C | `BMS.MIN_TEMP`, `BMS.MAX_TEMP` |
-| `senec/battery/soh` | % | `BMS.SYSTEM_SOH` |
-| `senec/battery/{charge_limit,discharge_limit}` | A | `BMS.SYSTEM_*_CURRENT_LIMIT` |
-| `senec/battery/spare_capacity` | % | `BAT1.SPARE_CAPACITY` |
-| `senec/battery/{charging,boosting,storage_mode}` | 1/0 | `ENERGY` |
-| `senec/battery/{modules,derating,bms_status,bms_error}` | number | `BMS` |
-| `senec/battery/dc/{voltage,current}` | V, A | `BAT1OBJ1.U_DC`, `I_DC` × −1 |
-| `senec/bat1/temperature/1`, `2` | °C | `BAT1OBJ1.TEMP1`, `TEMP2` (meaning undocumented) |
-| `senec/battery/module/<m>/{soc,soh}` | % | `BMS.SOC`, `BMS.SOH` |
-| `senec/battery/module/<m>/cycles` | count | `BMS.CYCLES` |
-| `senec/battery/module/<m>/{voltage,current}` | V, A | `BMS.VOLTAGE`, `BMS.CURRENT` × −1 |
-| `senec/battery/module/<m>/temperature/{min,max}` | °C | `BMS.TEMP_MIN`, `BMS.TEMP_MAX` |
-| `senec/battery/module/<m>/cell_voltage/{min,max}` | V | `BMS.MIN_CELL_VOLTAGE`, `BMS.MAX_CELL_VOLTAGE` |
-| `senec/battery/module/<m>/{charge_limit,discharge_limit}` | A | `BMS.*_CURRENT_LIMIT` |
-| `senec/battery/module/<m>/{status,balancing}` | number | `BMS.STATUS`, `BMS.CELL_BALANCE_STATUS` |
-| `senec/battery/module/<m>/{charged_counter,discharged_counter}` | raw | `BMS.*_ENERGY` (unit undocumented) |
-| `senec/battery/module/<m>/cell/<n>/temperature` | °C | `BMS.CELL_TEMPERATURES_MODULE_*` |
-| `senec/battery/module/<m>/cell/<n>/voltage` | V | `BMS.CELL_VOLTAGES_MODULE_*` |
-| `senec/system/temperature/{case,mcu}` | °C | `TEMPMEASURE` |
-| `senec/system/hours_of_operation` | h | `ENERGY.STAT_HOURS_OF_OPERATION` |
-
-Not published: configuration and commissioning data (`GRIDCONFIG`, `BMS_PARA`, wizard and self-test fields), serial numbers and other text values. The `WALLBOX` section is not published yet, see [possible extensions](docs/CONCEPT.md#possible-extensions).
+- **Every `POLL_INTERVAL`:** grid power, current, voltage and calculated power factor per phase, grid frequency, PV, house and battery power, battery voltage, current and state of charge, forced charging, system state. evcc works with these.
+- **Every `DETAIL_INTERVAL`:** PV strings, battery temperatures and limits, values per battery module and per cell, second meter, system temperatures, hours of operation.
+- Battery modules, PV strings and the second meter only appear if the device reports them as present. `--once` lists everything your device delivers.
+- `senec/status` is `online` or `offline`.
 
 ### Choosing what is read and how often
 
-The two tables above are the recommended split, and the gateway uses it unless you say otherwise. To change it, copy [metrics.example.toml](metrics.example.toml), list only what should differ, and set `METRICS_CONFIG` to its path:
+[docs/FIELDS.md](docs/FIELDS.md) shows the recommended split, and the gateway uses it unless you say otherwise. To change it, copy [metrics.example.toml](metrics.example.toml), list only what should differ, and set `METRICS_CONFIG` to its path:
 
 ```toml
 [rates]
@@ -137,6 +88,10 @@ meters:
       - { source: mqtt, topic: senec/grid/current/l1, timeout: 1m }
       - { source: mqtt, topic: senec/grid/current/l2, timeout: 1m }
       - { source: mqtt, topic: senec/grid/current/l3, timeout: 1m }
+    powers: # evcc takes the direction of the currents from these
+      - { source: mqtt, topic: senec/grid/power/l1, timeout: 1m }
+      - { source: mqtt, topic: senec/grid/power/l2, timeout: 1m }
+      - { source: mqtt, topic: senec/grid/power/l3, timeout: 1m }
 
   - name: senec_pv
     type: custom

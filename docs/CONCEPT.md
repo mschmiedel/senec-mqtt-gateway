@@ -39,6 +39,8 @@ senec-mqtt-gateway  --retained-->  MQTT broker  -->  evcc (type: custom, source:
 |---|---|---|
 | MQTT schema | Own schema | There is no market-standard schema that evcc understands |
 | Signs | Same as evcc | Saves converting in every evcc configuration |
+| Phase currents | As reported, always positive; direction via power and a calculated power factor | An RMS current has no direction, and a value the device does not report should be visibly calculated |
+| Field reference | Generated into [FIELDS.md](FIELDS.md) from the metric list | A test fails if it is out of date |
 | Publishing | Every cycle, even unchanged values | evcc treats missing messages as an error after `timeout` |
 | Access | One lock for reads and writes | Requests to the SENEC never overlap |
 | Read rates | Main values every 10 s, details on every 6th poll | Keeps the load low; evcc only controls with the main values. Counting polls keeps the rate exact despite varying response times |
