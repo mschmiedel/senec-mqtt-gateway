@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from .schema import DEFAULT_PLAN, ReadPlan, build_plan
+from .system_states import SYSTEM_STATES
 
 
 class ConfigError(Exception):
@@ -55,6 +56,7 @@ class Config:
     ha_discovery_prefix: str = "homeassistant"
     commands_enabled: bool = False
     log_level: str = "INFO"
+    language: str = "en"
 
     @property
     def detail_every(self) -> int:
@@ -89,8 +91,13 @@ class Config:
         if detail_interval < 0:
             raise ConfigError("DETAIL_INTERVAL must not be negative")
 
+        language = env.get("LANGUAGE", "en").strip().lower()
+        if language not in SYSTEM_STATES:
+            raise ConfigError(f"LANGUAGE must be one of {', '.join(SYSTEM_STATES)}")
+
         tls = uri.scheme == "mqtts"
         return cls(
+            language=language,
             senec_url=f"{scheme}://{host}",
             poll_interval=poll_interval,
             detail_interval=detail_interval,

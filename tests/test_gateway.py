@@ -149,6 +149,34 @@ async def test_discovery(fake_senec, mqtt_port):
     assert not any("SECRET" in payload for payload in seen.values())
 
 
+async def test_system_state_is_announced_as_enum(fake_senec, mqtt_port):
+    async with collector(mqtt_port) as (seen, _):
+        async with running_gateway(make_config(fake_senec, mqtt_port)):
+            await wait_for(lambda: seen.get("senec/status") == "online")
+
+    assert seen["senec/system/state"] == "14"
+    node = "senec_mqtt_gateway_senec"
+    state = json.loads(seen[f"homeassistant/sensor/{node}/system_state/config"])
+    assert state["device_class"] == "enum"
+    assert "CHARGE" in state["options"] and "UNKNOWN" in state["options"]
+    assert len(state["options"]) == len(set(state["options"]))
+    assert "suggested_display_precision" not in state
+    assert "state_class" not in state
+    assert '"14": "CHARGE"' in state["value_template"]
+
+
+async def test_language_only_changes_home_assistant_names(fake_senec, mqtt_port):
+    config = make_config(fake_senec, mqtt_port, language="de")
+    async with collector(mqtt_port) as (seen, _):
+        async with running_gateway(config):
+            await wait_for(lambda: seen.get("senec/status") == "online")
+
+    assert seen["senec/system/state"] == "14"
+    state = json.loads(seen["homeassistant/sensor/senec_mqtt_gateway_senec/system_state/config"])
+    assert "MAN. SICHERHEITSLADUNG" in state["options"]
+    assert "MAN. SAFETY CHARGE" not in state["options"]
+
+
 async def test_details_are_published(fake_senec, mqtt_port):
     async with collector(mqtt_port) as (seen, _):
         async with running_gateway(make_config(fake_senec, mqtt_port)):
@@ -508,6 +536,7 @@ def test_config_parses_mqtt_uri():
         {"SENEC_HOST": "h", "POLL_INTERVAL": "0.5"},
         {"SENEC_HOST": "h", "DETAIL_INTERVAL": "abc"},
         {"SENEC_HOST": "h", "DETAIL_INTERVAL": "-1"},
+        {"SENEC_HOST": "h", "LANGUAGE": "fr"},
     ],
 )
 def test_config_rejects_invalid(env):

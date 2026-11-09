@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from typing import Any
 
+from .system_states import SYSTEM_STATES
+
 Raw = Mapping[str, Mapping[str, Any]]
 
 RATES = ("poll", "detail", "off")
@@ -59,6 +61,9 @@ class Metric:
 
     ``advanced`` values are published, but disabled by default in Home Assistant.
 
+    ``labels`` holds names per language. The topic keeps the number, the names
+    only appear in Home Assistant.
+
     ``apparent_power_of`` names the two fields of the same section whose product
     is the apparent power. The value is then calculated by the gateway as
     power factor: ``field`` divided by that product. Descriptions are generated
@@ -81,6 +86,7 @@ class Metric:
     requires: tuple[str, str, int] | None = None
     advanced: bool = False
     apparent_power_of: tuple[str, str] | None = None
+    labels: Mapping[str, Mapping[int, str]] | None = None
 
     def _applies(self, raw: Raw) -> bool:
         if self.requires is None:
@@ -297,7 +303,7 @@ METRICS: tuple[Metric, ...] = (
     Metric("battery/current", "Battery current", "ENERGY", "GUI_BAT_DATA_CURRENT", 2, "A", "current", scale=-1.0, fast=True),
     Metric("battery/soc", "Battery state of charge", "ENERGY", "GUI_BAT_DATA_FUEL_CHARGE", 1, "%", "battery", legacy_id="senec_battery_charge_percent", fast=True),
     Metric("battery/safe_charge", "Battery forced charging", "ENERGY", "SAFE_CHARGE_RUNNING", 0, state_class=None, binary=True, fast=True),
-    Metric("system/state", "System state", "ENERGY", "STAT_STATE", 0, state_class=None, fast=True),
+    Metric("system/state", "System state", "ENERGY", "STAT_STATE", 0, device_class="enum", state_class=None, fast=True, labels=SYSTEM_STATES),
     # Read every DETAIL_INTERVAL
     Metric("grid/limited", "Grid feed-in limited", "ENERGY", "STAT_LIMITED_NET_SKEW", 0, state_class=None, binary=True),
     Metric("grid/zero_export", "Zero export", "ENERGY", "ZERO_EXPORT", 0, state_class=None, binary=True, advanced=True),

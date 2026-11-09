@@ -36,6 +36,7 @@ docker compose -f compose.example.yaml up -d
 | `HA_DISCOVERY_PREFIX` | `homeassistant` | Prefix for discovery |
 | `COMMANDS_ENABLED` | `false` | Accept battery commands |
 | `LOG_LEVEL` | `INFO` | Log level |
+| `LANGUAGE` | `en` | Language of the system state names in Home Assistant: `en`, `de` or `it`. MQTT topics are not affected |
 
 ## MQTT topics
 

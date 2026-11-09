@@ -9,6 +9,7 @@ from .schema import Metric, Raw, ReadPlan
 from .senec import BATTERY_MODES, DeviceInfo
 
 _SAFE_CHARGE_TOPIC = "battery/safe_charge"
+_UNKNOWN_LABEL = "UNKNOWN"
 
 
 def node_id(topic_prefix: str) -> str:
@@ -80,7 +81,13 @@ def discovery_messages(config: Config, info: DeviceInfo, raw: Raw, plan: ReadPla
         }
         if metric.advanced:
             payload["enabled_by_default"] = False
-        if metric.binary:
+        if metric.labels is not None:
+            names = metric.labels[config.language]
+            payload["options"] = list(dict.fromkeys([*names.values(), _UNKNOWN_LABEL]))
+            # JSON is also a valid Jinja literal, and escapes quotes in the names.
+            table = json.dumps({str(code): name for code, name in names.items()}, ensure_ascii=False)
+            payload["value_template"] = f'{{{{ {table}.get(value, "{_UNKNOWN_LABEL}") }}}}'
+        elif metric.binary:
             payload.update(payload_on="1", payload_off="0")
         else:
             payload["suggested_display_precision"] = metric.precision

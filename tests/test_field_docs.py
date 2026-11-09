@@ -24,6 +24,15 @@ def test_calculated_values_are_marked_as_calculated():
     assert "calculated by the gateway" in row
 
 
+def test_system_state_topic_keeps_the_number():
+    assert render_all({"ENERGY": {"STAT_STATE": 8}})["system/state"] == "8"
+    assert render_all({"ENERGY": {"STAT_STATE": 250}})["system/state"] == "250"
+
+
+def test_every_system_state_is_documented():
+    assert "| 8 | MAN. SAFETY CHARGE | MAN. SICHERHEITSLADUNG |" in render()
+
+
 def _phases(**overrides):
     return {
         "PM1OBJ1": {

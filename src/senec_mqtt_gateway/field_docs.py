@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 
 from .schema import METRICS, Metric
+from .system_states import SYSTEM_STATES
 
 _HEADER = """\
 # Fields
@@ -69,7 +70,16 @@ Home Assistant shows this as `select.senec_battery_mode`. It only exists while c
 - `STATISTIC` is empty on current firmware.
 """
 
-_RMS_CURRENT = "Always positive, as reported by the device: an RMS value has no direction. The direction is in the power of the same phase."
+_STATES_HEADER = """
+## System states
+
+Names of `ENERGY.STAT_STATE`, taken from [ha-senec-v3](https://github.com/marq24/ha-senec-v3). They are used in Home Assistant only. The MQTT topic always carries the number, so automations and other consumers do not depend on a language.
+
+| Code | en | de | it |
+|---|---|---|---|
+"""
+
+_RMS_CURRENT ="Always positive, as reported by the device: an RMS value has no direction. The direction is in the power of the same phase."
 _POWER_FACTOR = (
     "Not reported by the device, calculated by the gateway so that direction and load type are visible without "
     "combining three topics. Negative while exporting. Includes harmonics, so it is not exactly cos φ. "
@@ -87,7 +97,10 @@ _NOTES = {
     "battery/power": "Positive when discharging, negative when charging.",
     "battery/current": "Positive when discharging, negative when charging.",
     "battery/safe_charge": "1 while the device is force-charging the battery, which is the mode `charge`.",
-    "system/state": "Numeric state code of the device, not translated.",
+    "system/state": (
+        "The number the device reports. Home Assistant shows its name in the language set by `LANGUAGE`, "
+        "see [system states](#system-states), and `UNKNOWN` for a number not in that table."
+    ),
     "pv/power_ratio": "Power limit of the inverter, 100 while unlimited.",
     "battery/modules": "Number of configured modules. Decides which module values are published.",
     "battery/bms_status": "Raw device code.",
@@ -168,7 +181,12 @@ def render() -> str:
             meaning.append(_NOTES[topic])
         meaning.extend(_handling(group))
         rows.append(f"| `{topic}` | {unit} | {rate} | {_source(metric)} | {' '.join(meaning)} |")
-    return _HEADER + "\n".join(rows) + "\n" + _FOOTER
+    languages = list(SYSTEM_STATES)
+    states = "\n".join(
+        f"| {code} | " + " | ".join(SYSTEM_STATES[language][code] for language in languages) + " |"
+        for code in sorted(SYSTEM_STATES[languages[0]])
+    )
+    return _HEADER + "\n".join(rows) + "\n" + _FOOTER + _STATES_HEADER + states + "\n"
 
 
 if __name__ == "__main__":
