@@ -50,7 +50,7 @@ async def test_large_poll_set_is_read_in_several_requests(fake_senec):
 
 async def test_all_details_disabled_sends_no_request(fake_senec):
     async with create_session(timeout=2) as session:
-        plan = build_plan({key: "off" for key in ("grid/meter_power", "grid/limited", "grid/zero_export", "meter2/*", "pv/meter_power", "pv/power_ratio*", "pv/string/*", "battery/temperature*", "battery/soh", "battery/modules", "battery/charge_limit", "battery/discharge_limit", "battery/spare_capacity", "battery/charging", "battery/boosting", "battery/storage_mode", "battery/derating", "battery/bms_*", "battery/dc/*", "bat1/*", "battery/module/*", "system/temperature/*", "system/hours_of_operation")})
+        plan = build_plan({key: "off" for key in ("grid/limited", "grid/zero_export", "meter2/*", "pv/power_ratio*", "pv/string/*", "battery/temperature*", "battery/soh", "battery/modules", "battery/charge_limit", "battery/discharge_limit", "battery/spare_capacity", "battery/charging", "battery/boosting", "battery/storage_mode", "battery/derating", "battery/bms_*", "battery/dc/*", "bat1/*", "battery/module/*", "system/temperature/*", "system/hours_of_operation")})
         assert plan.detail == ()
         assert await SenecClient(session, fake_senec.url, plan=plan).read_details() == {}
     assert fake_senec.requests == []

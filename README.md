@@ -70,11 +70,9 @@ Battery modules (`a` … `d`), PV strings and the second meter only appear if th
 
 | Topic | Unit | Source |
 |---|---|---|
-| `senec/grid/meter_power` | W | `PM1OBJ1.P_TOTAL` |
 | `senec/grid/limited`, `senec/grid/zero_export` | 1/0 | `ENERGY.STAT_LIMITED_NET_SKEW`, `ENERGY.ZERO_EXPORT` |
 | `senec/meter2/{power,frequency}` | W, Hz | `PM1OBJ2` |
 | `senec/meter2/{power,current,voltage}/l1` … `l3` | W, A, V | `PM1OBJ2` |
-| `senec/pv/meter_power` | W | `PV1.P_TOTAL` |
 | `senec/pv/power_ratio`, `.../l1` … `l3` | % | `PV1.POWER_RATIO*` |
 | `senec/pv/string/1` … `3/{voltage,current,power}` | V, A, W | `PV1.MPP_*` |
 | `senec/battery/temperature` | °C | `TEMPMEASURE.BATTERY_TEMP` |

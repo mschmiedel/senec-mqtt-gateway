@@ -39,7 +39,6 @@ class FakeSenec:
                 "U_AC": [fl(230.1), fl(231.2), fl(232.3)],
                 "I_AC": [fl(1.5), fl(-2.5), fl(3.5)],
                 "P_AC": [fl(100.0), fl(-200.0), fl(300.0)],
-                "P_TOTAL": fl(200.0),
             },
             "PM1OBJ2": {"ENABLED": "u8_00", "FREQ": fl(0.0), "P_TOTAL": fl(0.0)},
             "PV1": {

@@ -249,11 +249,9 @@ METRICS: tuple[Metric, ...] = (
     Metric("battery/safe_charge", "Battery forced charging", "ENERGY", "SAFE_CHARGE_RUNNING", 0, state_class=None, binary=True, fast=True),
     Metric("system/state", "System state", "ENERGY", "STAT_STATE", 0, state_class=None, fast=True),
     # Read every DETAIL_INTERVAL
-    Metric("grid/meter_power", "Grid meter total power", "PM1OBJ1", "P_TOTAL", 1, "W", "power"),
     Metric("grid/limited", "Grid feed-in limited", "ENERGY", "STAT_LIMITED_NET_SKEW", 0, state_class=None, binary=True),
     Metric("grid/zero_export", "Zero export", "ENERGY", "ZERO_EXPORT", 0, state_class=None, binary=True, advanced=True),
     *_meter2_metrics(),
-    Metric("pv/meter_power", "PV total power", "PV1", "P_TOTAL", 1, "W", "power"),
     Metric("pv/power_ratio", "PV power limit", "PV1", "POWER_RATIO", 1, "%"),
     *(
         Metric(f"pv/power_ratio/{phase}", f"PV power limit {phase.upper()}", "PV1", f"POWER_RATIO_{phase.upper()}", 1, "%", advanced=True)
